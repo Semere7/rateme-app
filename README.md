@@ -8,9 +8,16 @@ Users build a profile across three dimensions — social reputation, personal ac
 
 ## Screenshots
 
+### Dashboard
 ![Dashboard](./screenshots/dashboard.png)
-![Salary Insights](./screenshots/salary.png)
-![Compare & Rank](./screenshots/compare.png)
+
+### Compare & Rank
+![Compare](./screenshots/compare.png)
+
+### Salary Insights
+![Salary](./screenshots/salary.png)
+
+### Achievements
 ![Achievements](./screenshots/achievements.png)
 
 ---
