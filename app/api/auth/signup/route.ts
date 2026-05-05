@@ -23,14 +23,16 @@ export async function POST(req: NextRequest) {
     }
   )
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://rateme-app-lilac.vercel.app'
+  const emailRedirectTo = `${siteUrl}/dashboard`
+  console.log('[signup] emailRedirectTo:', emailRedirectTo)
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { username: username.toLowerCase(), full_name },
-      emailRedirectTo: `${siteUrl}/dashboard`,
+      emailRedirectTo,
     },
   })
 
