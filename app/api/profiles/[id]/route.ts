@@ -24,16 +24,25 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (user.id !== params.id) return NextResponse.json({ error: 'Cannot edit another user\'s profile' }, { status: 403 })
 
-  const { full_name, bio } = await req.json()
+  const body = await req.json()
+  const { full_name, bio, avatar_url } = body
 
-  if (!full_name?.trim()) return NextResponse.json({ error: 'Full name is required' }, { status: 400 })
+  const patch: Record<string, string> = {}
+
+  if (full_name !== undefined) {
+    if (!full_name?.trim()) return NextResponse.json({ error: 'Full name is required' }, { status: 400 })
+    patch.full_name = full_name.trim()
+  }
+  if (bio !== undefined) patch.bio = bio?.trim() ?? ''
+  if (avatar_url !== undefined) patch.avatar_url = avatar_url
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
 
   const { data, error } = await supabase
     .from('profiles')
-    .update({
-      full_name: full_name.trim(),
-      bio: bio?.trim() ?? '',
-    })
+    .update(patch)
     .eq('id', params.id)
     .select()
     .single()

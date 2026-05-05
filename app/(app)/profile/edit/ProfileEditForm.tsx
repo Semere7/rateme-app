@@ -3,19 +3,20 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Profile } from '@/types'
+import AvatarUpload from '@/components/AvatarUpload'
 
 export default function ProfileEditForm({ profile }: { profile: Profile }) {
   const [fullName, setFullName] = useState(profile.full_name)
-  const [bio, setBio] = useState(profile.bio ?? '')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
-  const router = useRouter()
+  const [bio, setBio]           = useState(profile.bio ?? '')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const router                  = useRouter()
+
+  const profileUrl = `/profile/${profile.id}`
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setSuccess(false)
     setLoading(true)
 
     const res = await fetch(`/api/profiles/${profile.id}`, {
@@ -32,21 +33,22 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
       return
     }
 
-    setSuccess(true)
-    setLoading(false)
-    router.refresh()
+    router.push(profileUrl)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="flex justify-center pb-2">
+        <AvatarUpload
+          userId={profile.id}
+          currentUrl={profile.avatar_url ?? null}
+          name={profile.full_name}
+        />
+      </div>
+
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-          Profile updated successfully!
         </div>
       )}
 
@@ -89,7 +91,8 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => router.push(profileUrl)}
+          disabled={loading}
           className="btn-secondary flex-1"
         >
           Cancel
@@ -99,7 +102,7 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
           className="btn-primary flex-1"
           disabled={loading}
         >
-          {loading ? 'Saving...' : 'Save Changes'}
+          {loading ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
     </form>

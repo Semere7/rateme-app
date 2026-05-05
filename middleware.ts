@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Never redirect API routes — they handle their own auth
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -25,9 +32,11 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // getUser() validates the JWT with Supabase Auth and refreshes the token
+  // if it has expired, writing updated cookies into supabaseResponse.
+  // This is safe because API routes are excluded above.
   const { data: { user } } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
   const isAuthPage = pathname === '/login' || pathname === '/signup'
   const isPublicPage = pathname === '/' || isAuthPage
 

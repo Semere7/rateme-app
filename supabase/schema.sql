@@ -146,7 +146,20 @@ create policy "reports_select_own" on reports for select
   using (auth.uid() = reporter_id);
 
 -- =============================================
--- Auto-create profile on signup (optional trigger)
--- NOTE: We create profiles in the app code instead,
--- so this is here only as a reference.
+-- Grants: allow anon + authenticated roles to access tables
+-- (Required when tables are created via SQL Editor)
 -- =============================================
+grant usage on schema public to anon, authenticated;
+
+grant select on public.profiles to anon, authenticated;
+grant insert, update on public.profiles to authenticated;
+
+grant select on public.friendships to authenticated;
+grant insert, update on public.friendships to authenticated;
+
+grant select on public.ratings to anon, authenticated;
+grant insert, update on public.ratings to authenticated;
+
+grant select, insert on public.reports to authenticated;
+
+grant select on public.user_scores to anon, authenticated;

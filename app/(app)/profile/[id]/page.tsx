@@ -1,24 +1,28 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Profile, Rating, UserScore, Friendship } from '@/types'
+import { Profile, Rating, UserScore, Friendship, Achievement, AchievementScore } from '@/types'
 import StarRating from '@/components/StarRating'
 import FriendRequestButton from '@/components/FriendRequestButton'
+import Avatar from '@/components/Avatar'
 import ProfileRatingSection from './ProfileRatingSection'
 import ReportTrigger from './ReportTrigger'
+import AchievementsSection from '@/components/AchievementsSection'
+import { computeAchievementRank } from '@/lib/achievements'
 
 export default async function ProfilePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const isOwnProfile = params.id === user.id
-
   const [
     { data: profile },
     { data: score },
     { data: rawRatings },
     { data: rawFriendship },
+    { data: rawAchievements },
+    { data: rawAchievementScore },
+    { data: rawAllAchievementScores },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', params.id).single(),
     supabase.from('user_scores').select('*').eq('user_id', params.id).single(),
@@ -27,7 +31,7 @@ export default async function ProfilePage({ params }: { params: { id: string } }
       .select('*, rater:rater_id(id, username, full_name, avatar_url)')
       .eq('ratee_id', params.id)
       .order('created_at', { ascending: false }),
-    isOwnProfile
+    params.id === user.id
       ? { data: null }
       : supabase
           .from('friendships')
@@ -37,17 +41,31 @@ export default async function ProfilePage({ params }: { params: { id: string } }
             `and(requester_id.eq.${params.id},addressee_id.eq.${user.id})`
           )
           .maybeSingle(),
+    supabase
+      .from('achievements')
+      .select('*')
+      .eq('user_id', params.id)
+      .order('created_at', { ascending: false }),
+    supabase.from('achievement_scores').select('*').eq('user_id', params.id).maybeSingle(),
+    supabase.from('achievement_scores').select('user_id, total_points').gt('total_points', 0),
   ])
 
   if (!profile) notFound()
 
-  const typedProfile = profile as Profile
-  const typedScore = score as UserScore | null
-  const ratings = (rawRatings ?? []) as unknown as (Rating & { rater: Profile })[]
-  const friendship = rawFriendship as Pick<Friendship, 'id' | 'requester_id' | 'addressee_id' | 'status'> | null
+  const typedProfile  = profile as Profile
+  const typedScore    = score as UserScore | null
+  const ratings       = (rawRatings ?? []) as unknown as (Rating & { rater: Profile })[]
+  const friendship    = rawFriendship as Pick<Friendship, 'id' | 'requester_id' | 'addressee_id' | 'status'> | null
 
-  const isFriend = friendship?.status === 'accepted'
-  const myRating = ratings.find((r) => r.rater_id === user.id) ?? null
+  const isPublicFigure = typedProfile.profile_type === 'public_figure'
+  const isOwnProfile   = !isPublicFigure && params.id === user.id
+  const isFriend       = friendship?.status === 'accepted'
+  const myRating       = ratings.find((r) => r.rater_id === user.id) ?? null
+
+  const achievements       = (rawAchievements ?? []) as Achievement[]
+  const achievementScore   = rawAchievementScore as AchievementScore | null
+  const allAchievementScores = (rawAllAchievementScores ?? []) as { user_id: string; total_points: number }[]
+  const achievementRank    = computeAchievementRank(allAchievementScores, achievementScore?.total_points ?? 0)
 
   const scoreCategories = [
     { label: 'Trust', value: typedScore?.trust_avg },
@@ -56,14 +74,53 @@ export default async function ProfilePage({ params }: { params: { id: string } }
     { label: 'Respect', value: typedScore?.respect_avg },
   ]
 
+  // ── Public figure: abbreviated layout ────────────────────────────────────
+  if (isPublicFigure) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="card p-6">
+          <div className="flex flex-col sm:flex-row gap-5 items-start">
+            <Avatar src={typedProfile.avatar_url} name={typedProfile.full_name} size="lg" />
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h1 className="text-2xl font-bold text-gray-800">{typedProfile.full_name}</h1>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200 shrink-0">
+                  Public Figure
+                </span>
+              </div>
+              <p className="text-gray-500 mb-3">@{typedProfile.username}</p>
+              {typedProfile.bio && (
+                <p className="text-gray-600 text-sm leading-relaxed mb-3">{typedProfile.bio}</p>
+              )}
+              <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                This profile is based on publicly known achievements and is not managed by this person.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Achievements — main content for public figures */}
+        <div className="card p-6">
+          <AchievementsSection
+            achievements={achievements}
+            totalPoints={achievementScore?.total_points ?? 0}
+            rankInfo={achievementRank}
+            isOwn={false}
+            profileId={params.id}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // ── Regular user: full layout ─────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Profile Header */}
       <div className="card p-6">
         <div className="flex flex-col sm:flex-row gap-5 items-start">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shrink-0">
-            {typedProfile.full_name.charAt(0).toUpperCase()}
-          </div>
+          <Avatar src={typedProfile.avatar_url} name={typedProfile.full_name} size="lg" />
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -122,6 +179,17 @@ export default async function ProfilePage({ params }: { params: { id: string } }
         </div>
       </div>
 
+      {/* Achievements */}
+      <div className="card p-6">
+        <AchievementsSection
+          achievements={achievements}
+          totalPoints={achievementScore?.total_points ?? 0}
+          rankInfo={achievementRank}
+          isOwn={isOwnProfile}
+          profileId={params.id}
+        />
+      </div>
+
       {/* Rate section — only for accepted friends, not own profile */}
       {!isOwnProfile && isFriend && (
         <ProfileRatingSection
@@ -163,9 +231,7 @@ export default async function ProfilePage({ params }: { params: { id: string } }
                       href={`/profile/${r.rater.id}`}
                       className="flex items-center gap-2 hover:opacity-80"
                     >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {r.rater.full_name.charAt(0).toUpperCase()}
-                      </div>
+                      <Avatar src={r.rater.avatar_url} name={r.rater.full_name} size="sm" />
                       <div>
                         <p className="text-sm font-medium text-gray-800">{r.rater.full_name}</p>
                         <p className="text-xs text-gray-400">@{r.rater.username}</p>

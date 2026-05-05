@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Profile, Friendship } from '@/types'
+import Avatar from '@/components/Avatar'
 import RespondButtonsClient from './RespondButtonsClient'
 import FriendsSearch from './FriendsSearch'
 
@@ -63,9 +64,7 @@ export default async function FriendsPage() {
               return (
                 <div key={f.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                   <Link href={`/profile/${other.id}`} className="flex items-center gap-3 hover:opacity-80">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-semibold text-sm">
-                      {other.full_name.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar src={other.avatar_url} name={other.full_name} size="md" />
                     <div>
                       <p className="font-medium text-gray-800">{other.full_name}</p>
                       <p className="text-sm text-gray-500">@{other.username}</p>
@@ -97,9 +96,7 @@ export default async function FriendsPage() {
                   href={`/profile/${other.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                    {other.full_name.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar src={other.avatar_url} name={other.full_name} size="md" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-800">{other.full_name}</p>
                     <p className="text-sm text-gray-500">@{other.username}</p>

@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState('')
@@ -12,8 +10,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
@@ -32,45 +28,21 @@ export default function SignupPage() {
       return
     }
 
-    // Check username availability
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username.toLowerCase())
-      .single()
-
-    if (existingUser) {
-      setError('Username is already taken')
-      setLoading(false)
-      return
-    }
-
-    // Create auth user
-    const { data, error: signupError } = await supabase.auth.signUp({ email, password })
-
-    if (signupError || !data.user) {
-      setError(signupError?.message ?? 'Signup failed')
-      setLoading(false)
-      return
-    }
-
-    // Create profile
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      username: username.toLowerCase(),
-      full_name: fullName,
-      bio: '',
-      avatar_url: '',
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, username, full_name: fullName }),
     })
 
-    if (profileError) {
-      setError(profileError.message)
+    const json = await res.json()
+
+    if (!res.ok) {
+      setError(json.error ?? 'Signup failed')
       setLoading(false)
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    window.location.href = '/dashboard?welcome=signup'
   }
 
   return (
@@ -108,7 +80,6 @@ export default function SignupPage() {
             onChange={(e) => setUsername(e.target.value.replace(/[^a-z0-9_]/gi, '').toLowerCase())}
             required
           />
-          <p className="text-xs text-gray-400 mt-1">Letters, numbers, underscores only</p>
         </div>
 
         <div>
