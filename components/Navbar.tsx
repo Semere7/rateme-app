@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { LANGUAGES } from '@/lib/translations'
 import Avatar from './Avatar'
 
 type NavProfile = {
@@ -19,7 +18,7 @@ export default function Navbar({ profile }: { profile: NavProfile }) {
   const router   = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
-  const { t, locale, setLocale } = useLanguage()
+  const { t } = useLanguage()
 
   const NAV_LINKS = [
     { href: '/dashboard',    label: t.nav.dashboard,    mobileHidden: false },
@@ -144,28 +143,7 @@ export default function Navbar({ profile }: { profile: NavProfile }) {
                   {t.nav.settings}
                 </Link>
 
-                {/* Language selector */}
-                <div className="border-t border-gray-100 mt-1 pt-1 px-4 py-2">
-                  <p className="text-xs text-gray-400 mb-1.5">{t.nav.language}</p>
-                  <div className="flex gap-1">
-                    {LANGUAGES.map(lang => (
-                      <button
-                        key={lang.locale}
-                        onClick={() => setLocale(lang.locale)}
-                        className={[
-                          'flex-1 text-xs py-1 rounded-md border transition-colors',
-                          locale === lang.locale
-                            ? 'bg-blue-600 text-white border-blue-600 font-semibold'
-                            : 'text-gray-600 border-gray-200 hover:bg-gray-50',
-                        ].join(' ')}
-                      >
-                        {lang.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-100 pt-1">
+                <div className="border-t border-gray-100 mt-1 pt-1">
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
