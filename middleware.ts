@@ -4,16 +4,37 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // Never redirect API routes — they handle their own auth
+  console.log('[middleware] has url:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log('[middleware] has anon:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+  // Pass through Next.js internals, static assets, and public auth routes
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/_next/') ||
+    pathname === '/favicon.ico'
+
+  // API routes handle their own auth
   if (pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
+  // Bail out early if env vars are missing — avoids crash in createServerClient
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('[middleware] missing Supabase env vars — skipping auth check')
+    if (!isPublicRoute) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
     return NextResponse.next()
   }
 
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -32,24 +53,23 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() validates the JWT with Supabase Auth and refreshes the token
-  // if it has expired, writing updated cookies into supabaseResponse.
-  // This is safe because API routes are excluded above.
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (err) {
+    console.error('[middleware] getUser error:', err)
+    // If session check fails, treat as unauthenticated
+  }
 
   const isAuthPage = pathname === '/login' || pathname === '/signup'
-  const isPublicPage = pathname === '/' || isAuthPage
 
-  if (!user && !isPublicPage) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  if (!user && !isPublicRoute) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   if (user && isAuthPage) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return supabaseResponse
