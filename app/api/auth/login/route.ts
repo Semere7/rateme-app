@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
+  console.log('[auth] supabaseUrl:', process.env.NEXT_PUBLIC_SUPABASE_URL)
   console.log('[login] request received')
 
   try {
